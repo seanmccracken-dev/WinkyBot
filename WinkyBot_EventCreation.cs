@@ -47,32 +47,7 @@ public class WinkyBot_EventCreation
             Absent = Array.Empty<string>()
         };
 
-        var discordPayload = new
-        {
-            embeds = new[]
-            {
-                new
-                {
-                    title = eventName,
-                    description = eventDescription,
-                    timestamp = DateTime.Now.ToString("o"),    
-                    color = 5814783,
-                    fields = new[]
-                    {
-                        new { name = "Date", value = $"<t:{new DateTimeOffset(eventDateTimeUtc).ToUnixTimeSeconds()}:D>", inline = true },
-                        new { name = "Time", value = $"<t:{new DateTimeOffset(eventDateTimeUtc).ToUnixTimeSeconds()}:t>", inline = true },
-                        new { name = "\u200B", value = "\u200B", inline = false },
-                        new { name = "✅ Attending: ", value = "0", inline = false },
-                        new { name = "🤔 Tentative: ", value = "0", inline = false },
-                        new { name = "❌ Absent: ", value = "0", inline = false }
-                    },
-                    footer = new
-                    {
-                        text = "WinkyBot Scheduler"
-                    }
-                }
-            }
-        };
+        var discordPayload = BuildDiscordPayload(winkyEvent, eventDescription);
         
         await SendToDiscord(winkyEvent, discordPayload);
 
@@ -83,11 +58,22 @@ public class WinkyBot_EventCreation
     {
         var client = _httpClientFactory.CreateClient();
         var json = JsonSerializer.Serialize(payload);
-        var content  = new StringContent(json, Encoding.UTF8, "application/json");
+        var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+        var configuredChannelId = Environment.GetEnvironmentVariable("DISCORD_CHANNEL_ID");
 
-        string? webhookUrl = Environment.GetEnvironmentVariable("DISCORD_CHANNEL_WEBHOOK");
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(configuredChannelId))
+        {
+            _logger.LogError("Missing Discord configuration. Ensure DISCORD_TOKEN and DISCORD_CHANNEL_ID are set.");
+            return;
+        }
 
-        var response = await client.PostAsync($"{webhookUrl}?wait=true", content);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"https://discord.com/api/v10/channels/{configuredChannelId}/messages")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bot", token);
+
+        var response = await client.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
             var responseBody = await response.Content.ReadAsStringAsync();
@@ -123,5 +109,86 @@ public class WinkyBot_EventCreation
         {
             _logger.LogError(ex, "Failed to write event to Cosmos DB: {message}", ex.Message);
         }     
+    }
+
+    internal static object BuildDiscordPayload(WinkyEvent winkyEvent, string eventDescription)
+    {
+        var unixTime = new DateTimeOffset(winkyEvent.EventDateTimeUtc).ToUnixTimeSeconds();
+
+        return new
+        {
+            embeds = new[]
+            {
+                new
+                {
+                    title = winkyEvent.EventName,
+                    description = eventDescription,
+                    timestamp = DateTime.UtcNow.ToString("o"),
+                    color = 5814783,
+                    fields = new[]
+                    {
+                        new { name = "Date", value = $"<t:{unixTime}:D>", inline = true },
+                        new { name = "Time", value = $"<t:{unixTime}:t>", inline = true },
+                        new { name = "\u200B", value = "\u200B", inline = false },
+                        new { name = "✅ Attending", value = BuildMentionList(winkyEvent.Attending), inline = false },
+                        new { name = "🤔 Tentative", value = BuildMentionList(winkyEvent.Tentative), inline = false },
+                        new { name = "🕒 Late", value = BuildMentionList(winkyEvent.Late), inline = false },
+                        new { name = "❌ Absent", value = BuildMentionList(winkyEvent.Absent), inline = false }
+                    },
+                    footer = new
+                    {
+                        text = "WinkyBot Scheduler"
+                    }
+                }
+            },
+            components = new[]
+            {
+                new
+                {
+                    type = 1,
+                    components = new[]
+                    {
+                        new
+                        {
+                            type = 2,
+                            style = 3,
+                            label = "Attending",
+                            custom_id = $"event:{winkyEvent.id}:attending"
+                        },
+                        new
+                        {
+                            type = 2,
+                            style = 2,
+                            label = "Tentative",
+                            custom_id = $"event:{winkyEvent.id}:tentative"
+                        },
+                        new
+                        {
+                            type = 2,
+                            style = 1,
+                            label = "Late",
+                            custom_id = $"event:{winkyEvent.id}:late"
+                        },
+                        new
+                        {
+                            type = 2,
+                            style = 4,
+                            label = "Absent",
+                            custom_id = $"event:{winkyEvent.id}:absent"
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    private static string BuildMentionList(IEnumerable<string> userIds)
+    {
+        var mentions = userIds
+            .Where(userId => !string.IsNullOrWhiteSpace(userId))
+            .Select(userId => $"<@{userId}>")
+            .ToArray();
+
+        return mentions.Length == 0 ? "\u200B" : string.Join("\n", mentions);
     }
 }

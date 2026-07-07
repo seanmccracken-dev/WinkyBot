@@ -19,6 +19,9 @@ public class WinkyEvent
     [JsonPropertyName("tentative")]
     public string[] Tentative { get; set; } = Array.Empty<string>();
 
+    [JsonPropertyName("late")]
+    public string[] Late { get; set; } = Array.Empty<string>();
+
     [JsonPropertyName("absent")]
     public string[] Absent { get; set; } = Array.Empty<string>();
 
