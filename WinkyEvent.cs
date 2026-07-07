@@ -22,4 +22,10 @@ public class WinkyEvent
     [JsonPropertyName("absent")]
     public string[] Absent { get; set; } = Array.Empty<string>();
 
+    [JsonPropertyName("discordChannelId")]
+    public string? DiscordChannelId { get; set; }
+
+    [JsonPropertyName("discordMessageId")]
+    public string? DiscordMessageId { get; set; }
+
 }

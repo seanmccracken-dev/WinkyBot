@@ -87,10 +87,21 @@ public class WinkyBot_EventCreation
 
         string? webhookUrl = Environment.GetEnvironmentVariable("DISCORD_CHANNEL_WEBHOOK");
 
-        var response = await client.PostAsync(webhookUrl, content);
+        var response = await client.PostAsync($"{webhookUrl}?wait=true", content);
         if (response.IsSuccessStatusCode)
         {
-            _logger.LogInformation("Successfully sent event to Discord.");
+            var responseBody = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("id", out var messageId))
+                winkyEvent.DiscordMessageId = messageId.GetString();
+
+            if (root.TryGetProperty("channel_id", out var channelId))
+                winkyEvent.DiscordChannelId = channelId.GetString();
+
+            _logger.LogInformation("Successfully sent event to Discord. MessageId: {messageId}, ChannelId: {channelId}",
+                winkyEvent.DiscordMessageId, winkyEvent.DiscordChannelId);
         }
         else
         {
