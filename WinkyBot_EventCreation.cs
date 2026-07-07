@@ -9,6 +9,8 @@ namespace WinkyBot.Functions;
 
 public class WinkyBot_EventCreation
 {
+    internal const string DefaultEventDescription = "Join us for a night of fun and games!";
+
     private readonly ILogger _logger;
     private readonly CosmosClient _cosmosClient;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -26,7 +28,7 @@ public class WinkyBot_EventCreation
         _logger.LogInformation("Timer trigger function executed at: {executionTime}", DateTime.Now);
 
         var eventName = "Friday Night Games";
-        var eventDescription = "Join us for a night of fun and games!";
+        var eventDescription = DefaultEventDescription;
         
         TimeZoneInfo cstZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
         DateTime currentTime = TimeZoneInfo.ConvertTime(DateTime.UtcNow, cstZone);
@@ -179,6 +181,40 @@ public class WinkyBot_EventCreation
                     }
                 }
             }
+        };
+    }
+
+    internal static object BuildDiscordPayloadWithoutButtons(WinkyEvent winkyEvent, string eventDescription)
+    {
+        var unixTime = new DateTimeOffset(winkyEvent.EventDateTimeUtc).ToUnixTimeSeconds();
+
+        return new
+        {
+            embeds = new[]
+            {
+                new
+                {
+                    title = winkyEvent.EventName,
+                    description = eventDescription,
+                    timestamp = DateTime.UtcNow.ToString("o"),
+                    color = 5814783,
+                    fields = new[]
+                    {
+                        new { name = "Date", value = $"<t:{unixTime}:D>", inline = true },
+                        new { name = "Time", value = $"<t:{unixTime}:t>", inline = true },
+                        new { name = "\u200B", value = "\u200B", inline = false },
+                        new { name = "✅ Attending", value = BuildMentionList(winkyEvent.Attending), inline = false },
+                        new { name = "🤔 Tentative", value = BuildMentionList(winkyEvent.Tentative), inline = false },
+                        new { name = "🕒 Late", value = BuildMentionList(winkyEvent.Late), inline = false },
+                        new { name = "❌ Absent", value = BuildMentionList(winkyEvent.Absent), inline = false }
+                    },
+                    footer = new
+                    {
+                        text = "WinkyBot Scheduler"
+                    }
+                }
+            },
+            components = Array.Empty<object>()
         };
     }
 
