@@ -13,23 +13,26 @@ It automates weekly event posting, collects RSVP responses through Discord inter
 
 ## Architecture
 
-```mermaid
-flowchart LR
-		T1[Timer Trigger: Event Creation] --> F1[WinkyBot_EventCreation]
-		F1 --> D1[Discord API: Create Message]
-		F1 --> C1[(Cosmos DB: WinkyBot_DB / Events)]
+```text
+[Timer Trigger: Event Creation]
+  -> [WinkyBot_EventCreation]
+     -> [Discord API: Create Message]
+     -> [Cosmos DB: WinkyBot_DB / Events]
 
-		D2[Discord Interactions Webhook] --> H1[WinkyBot_InteractionHandler]
-		H1 --> S1[Signature Validation]
-		S1 --> C1
-		H1 --> D3[Discord API: Patch Message]
+[Discord Interactions Webhook]
+  -> [WinkyBot_InteractionHandler]
+     -> [Signature Validation]
+     -> [Cosmos DB: WinkyBot_DB / Events]
+     -> [Discord API: Patch Message]
 
-		T2[Timer Trigger: RSVP Closure] --> F2[WinkyBot_RsvpClosure]
-		F2 --> C1
-		F2 --> D4[Discord API: Patch Message Without Buttons]
+[Timer Trigger: RSVP Closure]
+  -> [WinkyBot_RsvpClosure]
+     -> [Cosmos DB: WinkyBot_DB / Events]
+     -> [Discord API: Patch Message Without Buttons]
 
-		A1[HTTP Trigger: UpdateCommands] --> F3[WinkyBot_CommandManager]
-		F3 --> D5[Discord API: Application Commands]
+[HTTP Trigger: UpdateCommands]
+  -> [WinkyBot_CommandManager]
+     -> [Discord API: Application Commands]
 ```
 
 ## Azure Functions Surface
