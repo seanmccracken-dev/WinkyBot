@@ -12,6 +12,9 @@ public class WinkyEvent
 
     [JsonPropertyName("eventDateTimeUtc")]
     public DateTime EventDateTimeUtc { get; set; }
+
+    [JsonPropertyName("eventDateTime")]
+    public DateTime? LegacyEventDateTimeUtc { get; set; }
     
     [JsonPropertyName("attending")]    
     public string[] Attending { get; set; } = Array.Empty<string>();
@@ -30,5 +33,33 @@ public class WinkyEvent
 
     [JsonPropertyName("discordMessageId")]
     public string? DiscordMessageId { get; set; }
+
+    [JsonPropertyName("rsvpClosed")]
+    public bool RsvpClosed { get; set; }
+
+    public DateTime? GetEffectiveEventDateTimeUtc()
+    {
+        if (EventDateTimeUtc != default)
+        {
+            return NormalizeToUtc(EventDateTimeUtc);
+        }
+
+        if (LegacyEventDateTimeUtc.HasValue)
+        {
+            return NormalizeToUtc(LegacyEventDateTimeUtc.Value);
+        }
+
+        return null;
+    }
+
+    private static DateTime NormalizeToUtc(DateTime dateTime)
+    {
+        return dateTime.Kind switch
+        {
+            DateTimeKind.Utc => dateTime,
+            DateTimeKind.Local => dateTime.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)
+        };
+    }
 
 }
